@@ -32,8 +32,17 @@
         android:layout_height="wrap_content"
         android:layout_below="@+id/btnSignInWithEmail"
         android:layout_centerHorizontal="true"
-        android:onClick="onClick"
         android:layout_marginTop="20dp"
+        />
+
+    <com.google.android.gms.common.SignInButton
+        android:id="@+id/btnGoogle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/btnFacebook"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:onClick="onClick"
         />
 
     <Button

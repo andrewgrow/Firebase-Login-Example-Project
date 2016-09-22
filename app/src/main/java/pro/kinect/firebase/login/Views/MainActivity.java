@@ -15,6 +15,12 @@ import com.facebook.FacebookCallback;
 import com.facebook.FacebookException;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInResult;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.AuthCredential;
@@ -22,6 +28,7 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FacebookAuthProvider;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
 
 import pro.kinect.firebase.login.R;
 
@@ -30,14 +37,16 @@ import pro.kinect.firebase.login.R;
  * Developer Andrew.Gahov@gmail.com
  */
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
+    private static final int GOOGLE_REQUEST = 101;
     private TextView tvStatus;
     private FirebaseAuth auth;
     private FirebaseAuth.AuthStateListener authListener;
     private boolean isSignedIn = false; //it is the simplest method keep information about signed in
     private LoginButton btnFacebook;
     private CallbackManager facebookCallbackManager;
+    private GoogleApiClient googleApiClient;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,15 +55,16 @@ public class MainActivity extends AppCompatActivity {
 
         tvStatus = (TextView) findViewById(R.id.tvStatus);
         btnFacebook = (LoginButton) findViewById(R.id.btnFacebook);
+        findViewById(R.id.btnGoogle).setOnClickListener(this);
 
         auth = FirebaseAuth.getInstance();
         isSignedIn = FirebaseAuth.getInstance().getCurrentUser() != null; //true = User is signed in
         facebookCallbackManager = CallbackManager.Factory.create();
 
-        addListeners();
+        initEntities();
     }
 
-    private void addListeners() {
+    private void initEntities() {
         // ----- For sign in with email ----- //
         authListener = new FirebaseAuth.AuthStateListener() {
             @Override
@@ -102,6 +112,23 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
+
+
+        // ----- For sign in with google ----- //
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+        googleApiClient = new GoogleApiClient.Builder(this)
+                .enableAutoManage(this, new GoogleApiClient.OnConnectionFailedListener() {
+                    @Override
+                    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+                        // nothing
+                    }
+                })
+                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
+                .build();
+
     }
 
     //here we adding the listener
@@ -118,6 +145,7 @@ public class MainActivity extends AppCompatActivity {
         if (authListener != null) auth.removeAuthStateListener(authListener);
     }
 
+    //show messages on the Phone's Screen
     public void signInStatusMessage(String newStatus) {
         if (tvStatus != null) tvStatus.setText(newStatus == null ? "" : newStatus);
     }
@@ -127,7 +155,16 @@ public class MainActivity extends AppCompatActivity {
     public void onClick(View view) {
         switch (view.getId()) {
             case R.id.btnSignInWithEmail:
-                signInWithEmail();
+                if (isSignedIn) return;
+                //start email sign-in dialog
+                DialogFragment emailDialog = EmailDialog.newInstance();
+                emailDialog.show(getSupportFragmentManager(), "emailDialogFragment");
+                break;
+            case R.id.btnGoogle:
+                //start Google sign-in activity
+                if (isSignedIn) return;
+                Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(googleApiClient);
+                startActivityForResult(signInIntent, GOOGLE_REQUEST);
                 break;
             case R.id.btnSignOut :
                 signOut();
@@ -147,19 +184,26 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        facebookCallbackManager.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == GOOGLE_REQUEST) {
+            GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
+            if (result.isSuccess()) {
+                // Google Sign In was successful, authenticate with Firebase
+                GoogleSignInAccount account = result.getSignInAccount();
+                firebaseAuthWithGoogle(account);
+            } else {
+                // Google Sign In failed, update UI appropriately
+                isSignedIn = false;
+                signOut();
+            }
+        } else {
+            facebookCallbackManager.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
 
 
     ///// --------  THE BLOCK OF SIGN IN WITH EMAIL STARTED ---------- //////
-    //show dialog about sign in
-    private void signInWithEmail() {
-        if (isSignedIn) return;
-        DialogFragment emailDialog = EmailDialog.newInstance();
-        emailDialog.show(getSupportFragmentManager(), "emailDialogFragment");
-    }
-
     //the first we will try sign in
     public void sendSignIn(final String email, final String password) {
         auth.signInWithEmailAndPassword(email, password)
@@ -201,11 +245,31 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onComplete(@NonNull Task<AuthResult> task) {
                         if (!task.isSuccessful()) {
-                            signInStatusMessage("Firebase authentication with Facebook failed.");
-                            isSignedIn = false;
+                            signInStatusMessage("Facebook authentication failed.");
+                            signOut();
                         }
                     }
                 });
     }
     ///// --------  THE BLOCK OF SIGN IN WITH FACEBOOK FINISHED ---------- //////
+
+
+
+
+
+    ///// --------  THE BLOCK OF SIGN IN WITH GOOGLE STARTED ---------- //////
+    private void firebaseAuthWithGoogle(GoogleSignInAccount acct) {
+        AuthCredential credential = GoogleAuthProvider.getCredential(acct.getIdToken(), null);
+        auth.signInWithCredential(credential)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+                        if (!task.isSuccessful()) {
+                            signInStatusMessage("Google authentication failed.");
+                            signOut();
+                        }
+                    }
+                });
+    }
+    ///// --------  THE BLOCK OF SIGN IN WITH GOOGLE FINISHED ---------- //////
 }
