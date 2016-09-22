@@ -19,11 +19,21 @@
         android:id="@+id/btnSignInWithEmail"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:text="Sign in with email"
         android:layout_below="@+id/tvStatus"
         android:layout_centerHorizontal="true"
-        android:text="Sign in with email"
         android:layout_marginTop="30dp"
         android:onClick="onClick"
+        />
+
+    <com.facebook.login.widget.LoginButton
+        android:id="@+id/btnFacebook"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/btnSignInWithEmail"
+        android:layout_centerHorizontal="true"
+        android:onClick="onClick"
+        android:layout_marginTop="20dp"
         />
 
     <Button
