@@ -41,5 +41,4 @@ captures/
 .DS_Store
 /captures
 .externalNativeBuild
-/gradle/
 /.idea/
